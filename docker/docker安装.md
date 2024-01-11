@@ -1,0 +1,307 @@
+# docker安装
+
+三种方式：
+1. 通过 yum 安装指定版本docker
+2. 二进制安装指定版本docker
+3. 通过脚本安装指定版本docker
+
+在CentOS7.9上安装docker
+
+官方安装指南
+https://docs.docker.com/engine/install/ubuntu/ 
+
+## 通过 yum 安装指定版本docker
+
+在CentOS7.9上，安装指定版本 docker-ce-20.10.10-3.el7
+
+```sh
+# 安装必要的工具 Install the yum-utils package (which provides the yum-config-manager utility).
+[root@centos7 ~]# yum install -y yum-utils
+
+# 配置docker的repo源 set up the repository.
+[root@centos7 ~]# yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+# 验证是否添加repo源
+[root@centos7 ~]# ls /etc/yum.repos.d/
+backup  base.repo  docker-ce.repo  epel.repo
+
+# 列出yum源中的docker-ce版本信息
+[root@centos7 ~]# yum list docker-ce --showduplicates
+......
+docker-ce.x86_64              3:20.10.10-3.el7               docker-ce-stable
+......
+
+# 查看服务器端docker-ce对应的客户端版本是多少
+[root@centos7 ~]# yum install docker-ce-20.10.10-3.el7
+查到对应的 docker-ce-cli 的版本是 24.0.7-1.el7
+
+# 找到正确的客户端版本后，安装。注意是横线+版本号。
+[root@centos7 ~]# yum install docker-ce-20.10.10-3.el7 docker-ce-cli-24.0.7-1.el7
+
+# CentOS上安装docker后，服务器端没有启动，只有客户端启动
+[root@centos7 ~]# docker version
+Client: Docker Engine - Community
+ Version:           24.0.7
+ API version:       1.43
+ Go version:        go1.20.10
+ Git commit:        afdd53b
+ Built:             Thu Oct 26 09:11:35 2023
+ OS/Arch:           linux/amd64
+ Context:           default
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+
+# 红帽系列安装docker-ce后，服务器端没有自动启动。这个和ubuntu不一样
+[root@centos7 ~]# systemctl enable --now docker.service
+
+# 查看安装的docker版本
+[root@centos7 ~]# docker version
+Client: Docker Engine - Community
+ Version:           24.0.7
+ API version:       1.41 (downgraded from 1.43)
+ Go version:        go1.20.10
+ Git commit:        afdd53b
+ Built:             Thu Oct 26 09:11:35 2023
+ OS/Arch:           linux/amd64
+ Context:           default
+
+Server: Docker Engine - Community
+ Engine:
+  Version:          20.10.10
+  API version:      1.41 (minimum version 1.12)
+  Go version:       go1.16.9
+  Git commit:       e2f740d
+  Built:            Mon Oct 25 07:43:13 2021
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          1.6.26
+  GitCommit:        3dd1e886e55dd695541fdcd67420c2888645a495
+ runc:
+  Version:          1.1.10
+  GitCommit:        v1.1.10-0-g18a0cb0
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+```
+
+## 二进制安装指定版本docker
+
+下载地址
+https://download.docker.com/
+
+具体位置
+https://download.docker.com/linux/static/stable/x86_64/
+
+```sh
+# 下载二进制安装包
+[root@centos7 ~]# wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.10.tgz
+
+# 解压二进制安装包到当前目录
+[root@centos7 ~]# tar xvf docker-20.10.10.tgz
+
+# 查看解压结果
+[root@centos7 ~]# ls
+anaconda-ks.cfg  docker  docker-20.10.10.tgz  reset_v7_4.sh
+
+# 复制解压后的内容到/usr/bin/目录中
+[root@centos7 ~]# cd docker
+[root@centos7 docker]# ll
+total 200804
+-rwxr-xr-x 1 Dawson Dawson 33908392 Oct 25  2021 containerd
+-rwxr-xr-x 1 Dawson Dawson  6508544 Oct 25  2021 containerd-shim
+-rwxr-xr-x 1 Dawson Dawson  8609792 Oct 25  2021 containerd-shim-runc-v2
+-rwxr-xr-x 1 Dawson Dawson 21131264 Oct 25  2021 ctr
+-rwxr-xr-x 1 Dawson Dawson 52885064 Oct 25  2021 docker
+-rwxr-xr-x 1 Dawson Dawson 64763136 Oct 25  2021 dockerd
+-rwxr-xr-x 1 Dawson Dawson   708616 Oct 25  2021 docker-init
+-rwxr-xr-x 1 Dawson Dawson  2784353 Oct 25  2021 docker-proxy
+-rwxr-xr-x 1 Dawson Dawson 14308904 Oct 25  2021 runc
+[root@centos7 docker]# cp * /usr/bin/
+[root@centos7 docker]# echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+
+# 执行dockerd
+[root@centos7 docker]# dockerd
+INFO[2024-01-10T23:45:12.421682518-05:00] Starting up 
+......
+INFO[2024-01-10T23:45:12.739173468-05:00] API listen on /var/run/docker.sock
+
+注意：
+此时执行dockerd，服务就启动了，但是这个服务是在前台执行的，前台关了，服务也就停了。
+服务器启动后，会生成/var/run/docker.sock文件，客户端就是通过这个文件和服务器通讯的。
+
+# 我们不用这种方式，要创建service。service文件的内容参考yum或者apt安装生成的service文件。
+
+[root@centos7 docker]# cat > /lib/systemd/system/docker.service <<-EOF
+> [Unit]
+> Description=Docker Application Container Engine
+> Documentation=https://docs.docker.com
+> After=network-online.target firewalld.service
+> Wants=network-online.target
+> 
+> [Service]
+> Type=notify
+> ExecStart=/usr/bin/dockerd -H unix://var/run/docker.sock
+> ExecReload=/bin/kill -s HUP $MAINPID
+> LimitNOFILE=infinity
+> LimitNPROC=infinity
+> LimitCORE=infinity
+> TimeoutStartSec=0
+> Delegate=yes
+> KillMode=process
+> Restart=on-failure
+> StartLimitBurst=3
+> StartLimitInterval=60s
+> 
+> [Install]
+> WantedBy=multi-user.target
+> EOF
+
+[root@centos7 docker]# cat /lib/systemd/system/docker.service
+[Unit]
+Description=Docker Application Container Engine
+Documentation=https://docs.docker.com
+After=network-online.target firewalld.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/dockerd -H unix://var/run/docker.sock
+ExecReload=/bin/kill -s HUP 
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+TimeoutStartSec=0
+Delegate=yes
+KillMode=process
+Restart=on-failure
+StartLimitBurst=3
+StartLimitInterval=60s
+
+[Install]
+WantedBy=multi-user.target
+[root@centos7 docker]# systemctl daemon-reload
+[root@centos7 docker]# systemctl enable --now  docker.service
+[root@centos7 docker]# systemctl status docker.service
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+   Active: active (running) since Thu 2024-01-11 00:03:39 EST; 19s ago
+     Docs: https://docs.docker.com
+ Main PID: 1427 (dockerd)
+    Tasks: 20
+   Memory: 35.5M
+   CGroup: /system.slice/docker.service
+           ├─1427 /usr/bin/dockerd -H unix://var/run/docker.sock
+           └─1435 containerd --config /var/run/docker/containerd/containerd.toml --log-level info
+
+[root@centos7 docker]# docker version
+Client:
+ Version:           20.10.10
+ API version:       1.41
+ Go version:        go1.16.9
+ Git commit:        b485636
+ Built:             Mon Oct 25 07:39:56 2021
+ OS/Arch:           linux/amd64
+ Context:           default
+ Experimental:      true
+
+Server: Docker Engine - Community
+ Engine:
+  Version:          20.10.10
+  API version:      1.41 (minimum version 1.12)
+  Go version:       go1.16.9
+  Git commit:       e2f740d
+  Built:            Mon Oct 25 07:44:54 2021
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          v1.4.11
+  GitCommit:        5b46e404f6b9f661a205e28d59c982d3634148f8
+ runc:
+  Version:          1.0.2
+  GitCommit:        v1.0.2-0-g52b36a2d
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+
+```
+
+## 通过脚本安装指定版本docker 
+
+文件名：install_docker.sh
+```sh
+#!/bin/bash
+
+DOCKER_VERSION=20.10.10
+URL=https://download.docker.com
+# URL=https://mirrors.aliyun.com
+
+prepare () {
+    if [ ! -e docker-${DOCKER_VERSION}.tgz ];then
+        wget ${URL}/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
+        # wget ${URL}/docker-ce/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz # 这句是aliyun下载
+    fi
+    [ $? -ne 0  ] && { echo "文件下载失败"; exit; }
+}
+
+install_docker () {
+    tar xf docker-${DOCKER_VERSION}.tgz -C /usr/local/
+    cp /usr/local/docker/* /usr/bin/
+    cat > /lib/systemd/system/docker.service <<-EOF
+[Unit]
+Description=Docker Application Container Engine
+Documentation=https://docs.docker.com
+After=network-online.target firewalld.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+# the default is not to use systemd for cgroups because the delegate issues still
+# exists and systemd currently does not support the cgroup feature set required
+# for containers run by docker
+ExecStart=/usr/bin/dockerd -H unix://var/run/docker.sock
+ExecReload=/bin/kill -s HUP \$MAINPID
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+# Uncomment TasksMax if your systemd version supports it.
+# Only systemd 226 and above support this version.
+#TasksMax=infinity
+TimeoutStartSec=0
+# set delegate yes so that systemd does not reset the cgroups of docker containers
+Delegate=yes
+# kill only the docker process, not all processes in the cgroup
+KillMode=process
+# restart the docker process if it exits prematurely
+Restart=on-failure
+StartLimitBurst=3
+StartLimitInterval=60s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload	
+
+# 这里是使用国内镜像加速站点来下载
+#    mkdir -p /etc/docker
+#    tee /etc/docker/daemon.json <<-'EOF'
+# {
+#  "registry-mirrors": ["https://si7y70hh.mirror.aliyuncs.com"]
+# }
+# EOF
+#	systemctl daemon-reload
+
+	systemctl restart docker
+}
+
+start_docker (){
+    systemctl enable --now docker
+    docker version
+}
+
+prepare
+install_docker
+start_docker
+```
